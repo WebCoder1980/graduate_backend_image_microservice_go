@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
-	"fmt"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/segmentio/kafka-go"
 	"io"
 	"log"
@@ -31,7 +33,38 @@ func worker() {
 
 		offset := strings.Index(msgStr, "---END FILE NAME---")
 
-		fmt.Println("Получен файл из Kafka: " + msgStr[0:offset])
+		ctx := context.Background()
+		endpoint := "localhost:9000"
+		accessKeyID := "minioadmin"
+		secretAccessKey := "minioadmin"
+		useSSL := false
+
+		minioClient, err := minio.New(endpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+			Secure: useSSL,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		bucketName := "filebuckit"
+
+		exists, err := minioClient.BucketExists(ctx, bucketName)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if !exists {
+			err := minioClient.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+
+		reader := bytes.NewReader(msg.Value[offset+(len("---END FILE NAME---")):])
+		_, err = minioClient.PutObject(ctx, bucketName, msgStr[:offset], reader, int64(len(msg.Value[offset+(len("---END FILE NAME---")):])), minio.PutObjectOptions{})
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
