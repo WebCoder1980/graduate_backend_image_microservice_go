@@ -9,14 +9,36 @@ import (
 	"strings"
 )
 
+type Consumer struct {
+	ctx         context.Context
+	kafkaReader *kafka.Reader
+	minioClient *minio.Client
+}
+
 const consumerGroup = "group0"
 
-func Consumer() {
-	reader := GetKafkaReader()
-	defer reader.Close()
+func NewConsumer(ctx context.Context) (*Consumer, error) {
+	kafkaReader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers: []string{os.Getenv("kafka_address")},
+		Topic:   TopicName,
+		GroupID: consumerGroup,
+	})
 
+	minioClient, err := minio.NewClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Consumer{
+		ctx:         ctx,
+		kafkaReader: kafkaReader,
+		minioClient: minioClient,
+	}, nil
+}
+
+func (c *Consumer) Start() {
 	for {
-		msg, err := reader.ReadMessage(context.Background())
+		msg, err := c.kafkaReader.ReadMessage(c.ctx)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -26,14 +48,6 @@ func Consumer() {
 		file := msg.Value[(offset + len(EndFileName)):]
 		filename := msgStr[:offset]
 
-		minio.Upsert(filename, file)
+		c.minioClient.Upsert(filename, file)
 	}
-}
-
-func GetKafkaReader() *kafka.Reader {
-	return kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{os.Getenv("kafka_address")},
-		Topic:   TopicName,
-		GroupID: consumerGroup,
-	})
 }

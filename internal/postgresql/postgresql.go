@@ -9,13 +9,17 @@ import (
 	"strconv"
 )
 
-func getConnStr() string {
+type PostgreSQL struct {
+	db *sql.DB
+}
+
+func NewPostgreSQL() (*PostgreSQL, error) {
 	port, err := strconv.Atoi(os.Getenv("postgresql_port"))
 	if err != nil {
 		log.Panic(err)
 	}
 
-	return fmt.Sprintf(
+	connStr := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		os.Getenv("postgresql_host"),
 		port,
@@ -24,17 +28,14 @@ func getConnStr() string {
 		os.Getenv("postgresql_dbname"),
 		"disable",
 	)
-}
 
-func getConnection() *sql.DB {
-	connStr := getConnStr()
 	db, err := sql.Open("pgx", connStr)
 	if err != nil {
-		log.Panic(err)
+		return nil, err
 	}
 	if err = db.Ping(); err != nil {
-		log.Panic(err)
+		return nil, err
 	}
 
-	return db
+	return &PostgreSQL{db: db}, nil
 }

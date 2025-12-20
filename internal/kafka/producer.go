@@ -10,12 +10,25 @@ import (
 	"os"
 )
 
-func Producer(file multipart.File, filename string) {
-	ctx := context.Background()
+type Producer struct {
+	ctx         context.Context
+	kafkaWriter *kafka.Writer
+}
 
-	writer := GetKafkaWriter()
-	defer writer.Close()
+func NewProducer(ctx context.Context) *Producer {
+	kafkaWriter := kafka.Writer{
+		Addr:       kafka.TCP(os.Getenv("kafka_address")),
+		Topic:      TopicName,
+		BatchBytes: constant.FileMaxSize,
+	}
 
+	return &Producer{
+		ctx:         ctx,
+		kafkaWriter: &kafkaWriter,
+	}
+}
+
+func (p *Producer) Write(file multipart.File, filename string) {
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
 		log.Panic(err)
@@ -24,18 +37,10 @@ func Producer(file multipart.File, filename string) {
 	bytesResult := append([]byte(filename), EndFileName...)
 	bytesResult = append(bytesResult, fileBytes...)
 
-	err = writer.WriteMessages(ctx, kafka.Message{
+	err = p.kafkaWriter.WriteMessages(p.ctx, kafka.Message{
 		Value: bytesResult,
 	})
 	if err != nil {
 		log.Panic(err)
-	}
-}
-
-func GetKafkaWriter() kafka.Writer {
-	return kafka.Writer{
-		Addr:       kafka.TCP(os.Getenv("kafka_address")),
-		Topic:      TopicName,
-		BatchBytes: constant.FileMaxSize,
 	}
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"graduate_backend_image_microservice_go/internal/constant"
 	"graduate_backend_image_microservice_go/internal/service"
 	"log"
@@ -10,7 +11,11 @@ import (
 
 const prefix = "/api/v1/image"
 
-func Post(w http.ResponseWriter, r *http.Request) {
+type Handler struct {
+	service *service.Service
+}
+
+func (h *Handler) Post(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -25,11 +30,15 @@ func Post(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	service.Post(file, handler.Filename)
+	h.service.Post(file, handler.Filename)
 }
 
-func Handler() {
-	http.HandleFunc(prefix+"/", Post)
+func NewHandler(ctx context.Context) *Handler {
+	return &Handler{service: service.NewService(ctx)}
+}
+
+func (h *Handler) Start() {
+	http.HandleFunc(prefix+"/", h.Post)
 
 	log.Panic(http.ListenAndServe(":"+os.Getenv("handler_port"), nil))
 }

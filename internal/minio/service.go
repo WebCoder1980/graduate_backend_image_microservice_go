@@ -9,20 +9,12 @@ import (
 	"os"
 )
 
-func Upsert(filename string, content []byte) {
-	ctx := context.Background()
-	minioClient := getMinIOClient()
-
-	bucketInit(minioClient, ctx)
-
-	reader := bytes.NewReader(content)
-	_, err := minioClient.PutObject(ctx, BucketName, filename, reader, int64(len(content)), minio.PutObjectOptions{})
-	if err != nil {
-		log.Panic(err)
-	}
+type Client struct {
+	ctx         context.Context
+	minioClient *minio.Client
 }
 
-func getMinIOClient() *minio.Client {
+func NewClient(ctx context.Context) (*Client, error) {
 	minioClient, err := minio.New(os.Getenv("minio_address"), &minio.Options{
 		Creds: credentials.NewStaticV4(
 			os.Getenv("minio_access_key_id"),
@@ -32,20 +24,41 @@ func getMinIOClient() *minio.Client {
 		Secure: UseSSL,
 	})
 	if err != nil {
-		log.Panic(err)
+		return nil, err
 	}
-	return minioClient
+
+	cli := &Client{ctx: ctx, minioClient: minioClient}
+
+	err = cli.bucketInit()
+	if err != nil {
+		return nil, err
+	}
+
+	return cli, nil
 }
 
-func bucketInit(minioClient *minio.Client, ctx context.Context) {
-	exists, err := minioClient.BucketExists(ctx, BucketName)
+func (c *Client) Upsert(filename string, content []byte) {
+	ctx := context.Background()
+
+	reader := bytes.NewReader(content)
+	_, err := c.minioClient.PutObject(ctx, BucketName, filename, reader, int64(len(content)), minio.PutObjectOptions{})
 	if err != nil {
 		log.Panic(err)
 	}
+}
+
+func (c *Client) bucketInit() error {
+	exists, err := c.minioClient.BucketExists(c.ctx, BucketName)
+	if err != nil {
+		return err
+	}
+
 	if !exists {
-		err := minioClient.MakeBucket(ctx, BucketName, minio.MakeBucketOptions{})
+		err = c.minioClient.MakeBucket(c.ctx, BucketName, minio.MakeBucketOptions{})
 		if err != nil {
-			log.Panic(err)
+			return err
 		}
 	}
+
+	return nil
 }
