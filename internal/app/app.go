@@ -18,7 +18,10 @@ func Run() {
 	}
 	wg.Go(kafkaConsumer.Start)
 
-	appHandler := handler.NewHandler(ctx)
+	appHandler, err := handler.NewHandler(ctx)
+	if err != nil {
+		log.Panic(err)
+	}
 	wg.Go(appHandler.Start)
 
 	wg.Wait()

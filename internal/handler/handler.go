@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 )
 
 const prefix = "/api/v1/image"
@@ -30,11 +31,23 @@ func (h *Handler) Post(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	h.service.Post(file, handler.Filename)
+	fileId, err := h.service.Post(file, handler.Filename)
+	if err != nil {
+		log.Panic(err)
+	}
+	_, err = w.Write([]byte(strconv.FormatInt(fileId, 10)))
+	if err != nil {
+		log.Panic(err)
+	}
 }
 
-func NewHandler(ctx context.Context) *Handler {
-	return &Handler{service: service.NewService(ctx)}
+func NewHandler(ctx context.Context) (*Handler, error) {
+	service, err := service.NewService(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Handler{service: service}, nil
 }
 
 func (h *Handler) Start() {
