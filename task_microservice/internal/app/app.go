@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"graduate_backend_task_microservice/internal/handler"
+	"graduate_backend_task_microservice/internal/kafkaconsumer"
 	"log"
 	"sync"
 )
@@ -16,6 +17,13 @@ func Run() {
 		log.Panic(err)
 	}
 	wg.Go(appHandler.Start)
+
+	kafka, err := kafkaconsumer.NewConsumer(ctx)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	wg.Go(kafka.Start)
 
 	wg.Wait()
 }

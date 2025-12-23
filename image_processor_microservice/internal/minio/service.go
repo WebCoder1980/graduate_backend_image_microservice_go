@@ -6,7 +6,6 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"io"
-	"log"
 	"os"
 	"strconv"
 )
@@ -62,12 +61,13 @@ func (c *Client) Get(filename string) ([]byte, error) {
 	return result, nil
 }
 
-func (c *Client) Upsert(content []byte, filename string) {
+func (c *Client) Upsert(content []byte, filename string) error {
 	reader := bytes.NewReader(content)
 	_, err := c.minioClient.PutObject(c.ctx, BucketTargetName, filename, reader, int64(len(content)), minio.PutObjectOptions{})
 	if err != nil {
-		log.Panic(err)
+		return err
 	}
+	return nil
 }
 
 func (c *Client) bucketInit() error {

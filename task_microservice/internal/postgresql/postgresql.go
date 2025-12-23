@@ -80,18 +80,39 @@ func (p *PostgreSQL) init() error {
 }
 
 func (p *PostgreSQL) TaskCreate(name string) (int64, error) {
-	row := p.db.QueryRow("SELECT id FROM task_status WHERE name='Обрабатывается'")
-	var taskTypeId int64
-	err := row.Scan(&taskTypeId)
+	taskTypeId, err := p.TaskStatusByName("Обрабатывается")
 	if err != nil {
 		return -1, err
 	}
 
-	row = p.db.QueryRow("INSERT INTO task (name, status_id) VALUES ($1, $2) RETURNING id", name, taskTypeId)
+	row := p.db.QueryRow("INSERT INTO task (name, status_id) VALUES ($1, $2) RETURNING id", name, taskTypeId)
 	var resultId int64
 	err = row.Scan(&resultId)
 	if err != nil {
 		return -1, err
 	}
 	return resultId, nil
+}
+
+func (p *PostgreSQL) TaskUpdateStatus(taskId int64, statusId int64) error {
+	_, err := p.db.Exec(`
+		UPDATE task
+		SET status_id = $1
+		WHERE id = $2
+	`, statusId, taskId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *PostgreSQL) TaskStatusByName(name string) (int64, error) {
+	row := p.db.QueryRow("SELECT id FROM task_status WHERE name=$1", name)
+	var result int64
+	err := row.Scan(&result)
+	if err != nil {
+		return -1, err
+	}
+	return result, nil
 }

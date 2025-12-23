@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"graduate_backend_task_microservice/internal/kafka"
+	"graduate_backend_task_microservice/internal/kafkaproducer"
 	"graduate_backend_task_microservice/internal/minio"
 	"graduate_backend_task_microservice/internal/postgresql"
 	"io"
@@ -13,7 +13,7 @@ import (
 
 type Service struct {
 	ctx           context.Context
-	kafkaProducer *kafka.Producer
+	kafkaProducer *kafkaproducer.Producer
 	minioClient   *minio.Client
 	postgresql    *postgresql.PostgreSQL
 }
@@ -29,9 +29,14 @@ func NewService(ctx context.Context) (*Service, error) {
 		return nil, err
 	}
 
+	kafka, err := kafkaproducer.NewProducer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Service{
 		ctx:           ctx,
-		kafkaProducer: kafka.NewProducer(ctx),
+		kafkaProducer: kafka,
 		minioClient:   minioClient,
 		postgresql:    psql,
 	}, nil
@@ -55,4 +60,18 @@ func (s *Service) Post(file multipart.File, filename string) (int64, error) {
 	s.kafkaProducer.Write(minioFilename)
 
 	return imageId, nil
+}
+
+func (s *Service) TaskUpdateStatus(taskId int64) error {
+	statusId, err := s.postgresql.TaskStatusByName("Успех")
+	if err != nil {
+		return err
+	}
+
+	err = s.postgresql.TaskUpdateStatus(taskId, statusId)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

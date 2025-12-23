@@ -1,21 +1,22 @@
-package kafka
+package kafkaconsumer
 
 import (
 	"context"
 	"github.com/segmentio/kafka-go"
-	"graduate_backend_image_processor_microservice/internal/minio"
+	"graduate_backend_task_microservice/internal/service"
 	"log"
 	"os"
+	"strconv"
 )
 
 const (
-	TopicName = "task_request"
+	TopicTaskRequest = "image_upsert"
 )
 
 type Consumer struct {
 	ctx         context.Context
 	kafkaReader *kafka.Reader
-	minioClient *minio.Client
+	service     *service.Service
 }
 
 const consumerGroup = "group0"
@@ -23,11 +24,11 @@ const consumerGroup = "group0"
 func NewConsumer(ctx context.Context) (*Consumer, error) {
 	kafkaReader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{os.Getenv("kafka_address")},
-		Topic:   TopicName,
+		Topic:   TopicTaskRequest,
 		GroupID: consumerGroup,
 	})
 
-	minioClient, err := minio.NewClient(ctx)
+	serv, err := service.NewService(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -35,24 +36,25 @@ func NewConsumer(ctx context.Context) (*Consumer, error) {
 	return &Consumer{
 		ctx:         ctx,
 		kafkaReader: kafkaReader,
-		minioClient: minioClient,
+		service:     serv,
 	}, nil
 }
 
 func (c *Consumer) Start() {
 	for {
 		msg, err := c.kafkaReader.ReadMessage(c.ctx)
+
 		if err != nil {
 			log.Panic(err)
 		}
 
-		filename := string(msg.Value)
-
-		source, err := c.minioClient.Get(filename)
+		taskId, err := strconv.ParseInt(string(msg.Value), 10, 64)
 		if err != nil {
 			log.Panic(err)
 		}
-
-		c.minioClient.Upsert(source, filename)
+		err = c.service.TaskUpdateStatus(taskId)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 }
