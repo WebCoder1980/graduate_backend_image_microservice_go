@@ -24,14 +24,9 @@ func (h *Handler) Post(w http.ResponseWriter, r *http.Request) {
 
 	r.ParseMultipartForm(constant.FileMaxSize)
 
-	file, handler, err := r.FormFile("file")
-	if err != nil {
-		http.Error(w, "Ошибка получения файла: ", http.StatusBadRequest)
-		return
-	}
-	defer file.Close()
+	files := r.MultipartForm
 
-	fileId, err := h.service.Post(file, handler.Filename)
+	fileId, err := h.service.Post(files)
 	if err != nil {
 		log.Panic(err)
 	}

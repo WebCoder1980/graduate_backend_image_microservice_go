@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"graduate_backend_task_microservice/internal/kafkaproducer"
 	"graduate_backend_task_microservice/internal/minio"
 	"graduate_backend_task_microservice/internal/postgresql"
@@ -42,24 +43,39 @@ func NewService(ctx context.Context) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) Post(file multipart.File, filename string) (int64, error) {
-	imageId, err := s.postgresql.TaskCreate(filename)
-	if err != nil {
-		return -1, err
+func (s *Service) Post(files *multipart.Form) (int64, error) {
+	if files == nil {
+		return -1, errors.New("файл отсутствует")
 	}
 
-	fileFormat := strings.ToLower(filename[strings.LastIndex(filename, ".")+1:])
-	minioFilename := strconv.FormatInt(imageId, 10) + "." + fileFormat
+	for _, v2 := range files.File["file"] {
+		val, err := v2.Open()
+		if err != nil {
+			return -1, err
+		}
 
-	fileBytes, err := io.ReadAll(file)
-	if err != nil {
-		return -1, err
+		fileBytes, err := io.ReadAll(val)
+		if err != nil {
+			return -1, err
+		}
+
+		filename := v2.Filename
+
+		taskId, err := s.postgresql.TaskCreate(filename)
+		if err != nil {
+			return -1, err
+		}
+
+		fileFormat := strings.ToLower(filename[strings.LastIndex(filename, ".")+1:])
+		minioFilename := strconv.FormatInt(taskId, 10) + "." + fileFormat
+
+		s.minioClient.Upsert(fileBytes, minioFilename)
+
+		s.kafkaProducer.Write(minioFilename)
+
+		return taskId, nil
 	}
-	s.minioClient.Upsert(fileBytes, minioFilename)
-
-	s.kafkaProducer.Write(minioFilename)
-
-	return imageId, nil
+	return -1, errors.New("файл отсутствует")
 }
 
 func (s *Service) TaskUpdateStatus(taskId int64) error {
