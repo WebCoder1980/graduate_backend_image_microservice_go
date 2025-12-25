@@ -86,7 +86,7 @@ func (p *PostgreSQL) init() error {
 	return nil
 }
 
-func (p *PostgreSQL) TaskGetByTaskId(taskId int64) ([]model.ImageInfo, error) {
+func (p *PostgreSQL) ImageGetByTaskId(taskId int64) ([]model.ImageInfo, error) {
 	var result []model.ImageInfo
 
 	rows, err := p.db.Query(`	

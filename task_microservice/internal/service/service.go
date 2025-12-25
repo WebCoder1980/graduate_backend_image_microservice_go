@@ -46,7 +46,7 @@ func NewService(ctx context.Context) (*Service, error) {
 }
 
 func (s *Service) GetImagesByTaskId(taskId int64) (model.TaskResponse, error) {
-	images, err := s.postgresql.TaskGetByTaskId(taskId)
+	images, err := s.postgresql.ImageGetByTaskId(taskId)
 	if err != nil {
 		return model.TaskResponse{}, err
 	}
