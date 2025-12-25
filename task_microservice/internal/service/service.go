@@ -44,6 +44,39 @@ func NewService(ctx context.Context) (*Service, error) {
 	}, nil
 }
 
+func (s *Service) GetImagesByTaskId(taskId int64) (model.TaskResponse, error) {
+	images, err := s.postgresql.TaskGetByTaskId(taskId)
+	if err != nil {
+		return model.TaskResponse{}, err
+	}
+
+	var commonStatusId int64 = 2 // TODO
+
+	isWork, isFailed := false, false
+
+	for _, val := range images {
+		switch val.StatusId {
+		case 1: // TODO
+			isWork = true
+		case 3: // TODO
+			isFailed = true
+			break
+		}
+	}
+
+	if isWork {
+		commonStatusId = 1 // TODO
+	}
+	if isFailed {
+		commonStatusId = 3 // TODO
+	}
+
+	return model.TaskResponse{
+		CommonStatusId: commonStatusId,
+		Images:         images,
+	}, nil
+}
+
 func (s *Service) Post(files *multipart.Form) (int64, error) {
 	if files == nil {
 		return -1, errors.New("файл отсутствует")

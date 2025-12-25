@@ -86,6 +86,33 @@ func (p *PostgreSQL) init() error {
 	return nil
 }
 
+func (p *PostgreSQL) TaskGetByTaskId(taskId int64) ([]model.ImageInfo, error) {
+	var result []model.ImageInfo
+
+	rows, err := p.db.Query(`	
+		SELECT id, name, format, task_id, position, status_id
+		FROM image
+		WHERE task_id = $1
+		ORDER BY id
+	`, taskId)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var cur model.ImageInfo
+
+		err = rows.Scan(&cur.Id, &cur.Filename, &cur.Format, &cur.TaskId, &cur.Position, &cur.StatusId)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, cur)
+	}
+
+	return result, nil
+}
+
 func (p *PostgreSQL) TaskCreate() (int64, error) {
 	row := p.db.QueryRow("INSERT INTO task DEFAULT VALUES RETURNING id")
 	var resultId int64
