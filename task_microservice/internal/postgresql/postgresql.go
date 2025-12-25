@@ -54,7 +54,7 @@ func (p *PostgreSQL) init() error {
 			id BIGSERIAL PRIMARY KEY
 		);
 		CREATE TABLE IF NOT EXISTS image_status(
-		    id BIGSERIAL PRIMARY KEY,
+		    id BIGINT PRIMARY KEY,
 		    name TEXT NOT NULL UNIQUE
 		);
 		CREATE TABLE IF NOT EXISTS image(
@@ -77,7 +77,7 @@ func (p *PostgreSQL) init() error {
 		return err
 	}
 	if count == 0 {
-		_, err = p.db.Exec("INSERT INTO image_status(name) VALUES ('Обрабатывается'), ('Успех'), ('Ошибка')")
+		_, err = p.db.Exec("INSERT INTO image_status(id, name) VALUES (1, 'Обрабатывается'), (2, 'Успех'), (3, 'Ошибка')")
 		if err != nil {
 			return err
 		}
