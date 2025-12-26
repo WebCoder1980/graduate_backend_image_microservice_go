@@ -97,13 +97,14 @@ func (s *Service) Post(files *multipart.Form) (int64, error) {
 
 	for i, v2 := range files.File["file"] {
 		imageInfo := model.ImageInfo{
-			Filename: v2.Filename,
 			TaskId:   taskId,
 			Position: i + 1,
 			StatusId: constant.StatusInWork,
 		}
 
-		imageInfo.Format = strings.ToLower(imageInfo.Filename[strings.LastIndex(imageInfo.Filename, ".")+1:])
+		formatSeparator := strings.LastIndex(v2.Filename, ".")
+		imageInfo.Filename = v2.Filename[:formatSeparator]
+		imageInfo.Format = strings.ToLower(v2.Filename[formatSeparator+1:])
 
 		imageId, err := s.postgresql.ImageCreate(imageInfo)
 		if err != nil {
