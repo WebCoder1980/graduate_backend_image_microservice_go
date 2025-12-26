@@ -60,7 +60,9 @@ func (p *PostgreSQL) init() error {
 		    position INT NOT NULL,
 		    name TEXT NOT NULL,
 		    format TEXT NOT NULL,
-		    status_id BIGINT REFERENCES image_status(id) NOT NULL
+		    status_id BIGINT REFERENCES image_status(id) NOT NULL,
+		    end_dt TIMESTAMP NULL,
+		    CONSTRAINT uq_image_task_id_position UNIQUE (task_id, position)
 		)
 	`)
 	if err != nil {
@@ -84,7 +86,7 @@ func (p *PostgreSQL) init() error {
 }
 
 func (p *PostgreSQL) ImageCreate(imageInfo model.ImageInfo) (int64, error) {
-	row := p.db.QueryRow("INSERT INTO image (task_id, position, name, format, status_id) VALUES ($1, $2, $3, $4, $5) RETURNING id", imageInfo.TaskId, imageInfo.Position, imageInfo.Filename, imageInfo.Format, imageInfo.StatusId)
+	row := p.db.QueryRow("INSERT INTO image (task_id, position, name, format, status_id, end_dt) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id", imageInfo.TaskId, imageInfo.Position, imageInfo.Filename, imageInfo.Format, imageInfo.StatusId, imageInfo.EndDT)
 	var resultId int64
 	err := row.Scan(&resultId)
 	if err != nil {

@@ -73,9 +73,15 @@ func (s *Service) GetImagesByTaskId(taskId int64) (model.TaskResponse, error) {
 		commonStatusId = constant.StatusFailed
 	}
 
+	taskInfo, err := s.postgresql.TaskGetById(taskId)
+	if err != nil {
+		return model.TaskResponse{}, err
+	}
+
 	return model.TaskResponse{
 		CommonStatusId: commonStatusId,
 		Images:         images,
+		CreatedDT:      taskInfo.CreatedDT,
 	}, nil
 }
 

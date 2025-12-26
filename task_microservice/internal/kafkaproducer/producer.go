@@ -53,8 +53,8 @@ func initTopic() error {
 	return nil
 }
 
-func (p *Producer) Write(filename *model.ImageInfo) error {
-	data, err := json.Marshal(filename)
+func (p *Producer) Write(imageInfo *model.ImageInfo) error {
+	data, err := json.Marshal(imageInfo)
 	if err != nil {
 		return err
 	}

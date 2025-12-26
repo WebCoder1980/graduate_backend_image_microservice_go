@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 )
 
 type PostgreSQL struct {
@@ -51,7 +52,8 @@ func (p *PostgreSQL) init() error {
 
 	_, err := p.db.Exec(`
 		CREATE TABLE IF NOT EXISTS task(
-			id BIGSERIAL PRIMARY KEY
+			id BIGSERIAL PRIMARY KEY,
+			created_dt TIMESTAMP NOT NULL
 		);
 		CREATE TABLE IF NOT EXISTS image_status(
 		    id BIGINT PRIMARY KEY,
@@ -63,7 +65,9 @@ func (p *PostgreSQL) init() error {
 		    position INT NOT NULL,
 		    name TEXT NOT NULL,
 		    format TEXT NOT NULL,
-		    status_id BIGINT REFERENCES image_status(id) NOT NULL
+		    status_id BIGINT REFERENCES image_status(id) NOT NULL,
+		    end_dt TIMESTAMP NULL,
+		    CONSTRAINT uq_image_task_id_position UNIQUE (task_id, position)
 		)
 	`)
 	if err != nil {
@@ -86,11 +90,22 @@ func (p *PostgreSQL) init() error {
 	return nil
 }
 
+func (p *PostgreSQL) TaskGetById(id int64) (model.TaskInfo, error) {
+	row := p.db.QueryRow("SELECT id, created_dt FROM task WHERE id = $1", id)
+	var taskInfo model.TaskInfo
+	err := row.Scan(&taskInfo.Id, &taskInfo.CreatedDT)
+	if err != nil {
+		return model.TaskInfo{}, err
+	}
+
+	return taskInfo, nil
+}
+
 func (p *PostgreSQL) ImageGetByTaskId(taskId int64) ([]model.ImageInfo, error) {
 	var result []model.ImageInfo
 
 	rows, err := p.db.Query(`	
-		SELECT id, name, format, task_id, position, status_id
+		SELECT id, name, format, task_id, position, status_id, end_dt
 		FROM image
 		WHERE task_id = $1
 		ORDER BY id
@@ -102,7 +117,7 @@ func (p *PostgreSQL) ImageGetByTaskId(taskId int64) ([]model.ImageInfo, error) {
 	for rows.Next() {
 		var cur model.ImageInfo
 
-		err = rows.Scan(&cur.Id, &cur.Filename, &cur.Format, &cur.TaskId, &cur.Position, &cur.StatusId)
+		err = rows.Scan(&cur.Id, &cur.Filename, &cur.Format, &cur.TaskId, &cur.Position, &cur.StatusId, &cur.EndDT)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +129,7 @@ func (p *PostgreSQL) ImageGetByTaskId(taskId int64) ([]model.ImageInfo, error) {
 }
 
 func (p *PostgreSQL) TaskCreate() (int64, error) {
-	row := p.db.QueryRow("INSERT INTO task DEFAULT VALUES RETURNING id")
+	row := p.db.QueryRow("INSERT INTO task (created_dt) VALUES ($1) RETURNING id", time.Now())
 	var resultId int64
 	err := row.Scan(&resultId)
 	if err != nil {
@@ -136,9 +151,11 @@ func (p *PostgreSQL) ImageCreate(imageInfo model.ImageInfo) (int64, error) {
 func (p *PostgreSQL) ImageUpdateStatus(imageStatus model.ImageStatus) error {
 	_, err := p.db.Exec(`
 		UPDATE image
-		SET status_id = $1
-		WHERE task_id=$2 AND position=$3
-	`, imageStatus.StatusId, imageStatus.TaskId, imageStatus.Position)
+		SET
+		    status_id = $1,
+			end_dt = $2
+		WHERE task_id=$3 AND position=$4
+	`, imageStatus.StatusId, imageStatus.EndDT, imageStatus.TaskId, imageStatus.Position)
 	if err != nil {
 		return err
 	}
