@@ -47,8 +47,8 @@ func NewClient(ctx context.Context) (*Client, error) {
 	return cli, nil
 }
 
-func (c *Client) Get(filename string) ([]byte, error) {
-	object, err := c.minioClient.GetObject(c.ctx, BucketSourceName, filename, minio.GetObjectOptions{})
+func (c *Client) Get(bucketName string, filename string) ([]byte, error) {
+	object, err := c.minioClient.GetObject(c.ctx, bucketName, filename, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}

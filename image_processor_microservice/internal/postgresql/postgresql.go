@@ -85,6 +85,23 @@ func (p *PostgreSQL) init() error {
 	return nil
 }
 
+func (p *PostgreSQL) ImageGetByid(imageId int64) (model.ImageInfo, error) {
+	row := p.db.QueryRow(`	
+		SELECT id, name, format, task_id, position, status_id, end_dt
+		FROM image
+		WHERE id = $1
+	`, imageId)
+
+	var result model.ImageInfo
+
+	err := row.Scan(&result.Id, &result.Filename, &result.Format, &result.TaskId, &result.Position, &result.StatusId, &result.EndDT)
+	if err != nil {
+		return model.ImageInfo{}, err
+	}
+
+	return result, nil
+}
+
 func (p *PostgreSQL) ImageCreate(imageInfo model.ImageInfo) (int64, error) {
 	row := p.db.QueryRow("INSERT INTO image (task_id, position, name, format, status_id, end_dt) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id", imageInfo.TaskId, imageInfo.Position, imageInfo.Filename, imageInfo.Format, imageInfo.StatusId, imageInfo.EndDT)
 	var resultId int64

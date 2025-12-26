@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"graduate_backend_image_processor_microservice/internal/constant"
 	"graduate_backend_image_processor_microservice/internal/kafkaproducer"
 	"graduate_backend_image_processor_microservice/internal/minio"
@@ -43,12 +44,28 @@ func NewService(ctx context.Context) (*Service, error) {
 	}, nil
 }
 
+func (s *Service) ImageGetById(imageId int64) ([]byte, error) {
+	imageInfo, err := s.postgresql.ImageGetByid(imageId)
+	if err != nil {
+		return nil, err
+	}
+
+	minioFilename := fmt.Sprintf("%d_%d.%s", imageInfo.TaskId, imageInfo.Position, imageInfo.Format)
+
+	data, err := s.minioClient.Get(minio.BucketTargetName, minioFilename)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, err
+}
+
 func (s *Service) ImageProcessor(imageInfo *model.ImageInfo) error {
 	imageInfo.StatusId = constant.StatusSuccessful
 
 	minioFilename := strconv.FormatInt(imageInfo.TaskId, 10) + "_" + strconv.Itoa(imageInfo.Position) + "." + imageInfo.Format
 
-	source, err := s.minioClient.Get(minioFilename)
+	source, err := s.minioClient.Get(minio.BucketSourceName, minioFilename)
 	if err != nil {
 		imageInfo.StatusId = constant.StatusFailed
 		imageInfo.EndDT = time.Now()
