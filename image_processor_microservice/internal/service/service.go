@@ -1,16 +1,26 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/disintegration/imaging"
 	"graduate_backend_image_processor_microservice/internal/constant"
 	"graduate_backend_image_processor_microservice/internal/kafkaproducer"
 	"graduate_backend_image_processor_microservice/internal/minio"
 	"graduate_backend_image_processor_microservice/internal/model"
 	"graduate_backend_image_processor_microservice/internal/postgresql"
+	"image/jpeg"
+	"image/png"
 	"strconv"
 	"time"
+)
+
+const (
+	FormatJPEG string = "jpg"
+	FormatPNG  string = "png"
+	FormatWEBP string = "webp"
 )
 
 type Service struct {
@@ -60,12 +70,12 @@ func (s *Service) ImageGetById(imageId int64) ([]byte, error) {
 	return data, err
 }
 
-func (s *Service) ImageProcessor(imageRequest *model.ImageRequest) error {
+func (s *Service) ServiceImageProcessor(imageRequest *model.ImageRequest) error {
 	imageRequest.StatusId = constant.StatusSuccessful
-	
+
 	minioFilename := strconv.FormatInt(imageRequest.TaskId, 10) + "_" + strconv.Itoa(imageRequest.Position) + "." + imageRequest.Format
 
-	source, err := s.minioClient.Get(minio.BucketSourceName, minioFilename)
+	sourceBytes, err := s.minioClient.Get(minio.BucketSourceName, minioFilename)
 	if err != nil {
 		imageRequest.StatusId = constant.StatusFailed
 		imageRequest.EndDT = time.Now()
@@ -76,12 +86,15 @@ func (s *Service) ImageProcessor(imageRequest *model.ImageRequest) error {
 		return nil
 	}
 
-	// TODO processing
+	targetBytes, err := s.ImageProcess(sourceBytes, imageRequest.TargetFormat, imageRequest.Width, imageRequest.Height, imageRequest.Quality)
+	if err != nil {
+		return err
+	}
+	imageRequest.EndDT = time.Now()
 
 	imageId, err := s.postgresql.ImageCreate(*imageRequest)
 	if err != nil {
 		imageRequest.StatusId = constant.StatusFailed
-		imageRequest.EndDT = time.Now()
 		err2 := s.ImageProcessorKafkaWrite(imageRequest)
 		if err2 != nil {
 			return errors.New(err.Error() + "; " + err2.Error())
@@ -90,10 +103,9 @@ func (s *Service) ImageProcessor(imageRequest *model.ImageRequest) error {
 	}
 	imageRequest.Id = imageId
 
-	err = s.minioClient.Upsert(source, minioFilename)
+	err = s.minioClient.Upsert(targetBytes, minioFilename)
 	if err != nil {
 		imageRequest.StatusId = constant.StatusFailed
-		imageRequest.EndDT = time.Now()
 		err2 := s.ImageProcessorKafkaWrite(imageRequest)
 		if err2 != nil {
 			return errors.New(err.Error() + "; " + err2.Error())
@@ -101,7 +113,6 @@ func (s *Service) ImageProcessor(imageRequest *model.ImageRequest) error {
 		return nil
 	}
 
-	imageRequest.EndDT = time.Now()
 	err = s.ImageProcessorKafkaWrite(imageRequest)
 	if err != nil {
 		return err
@@ -124,4 +135,48 @@ func (s *Service) ImageProcessorKafkaWrite(imageRequest *model.ImageRequest) err
 	}
 
 	return nil
+}
+
+func (s *Service) ImageProcess(input []byte, format *string, width *int, height *int, quality *float32) ([]byte, error) {
+	img, err := imaging.Decode(bytes.NewReader(input))
+	if err != nil {
+		return nil, err
+	}
+
+	if width != nil && height != nil {
+		img = imaging.Resize(img, *width, *height, imaging.Lanczos)
+	}
+
+	var buf bytes.Buffer
+
+	switch *format {
+	case FormatJPEG:
+		if quality == nil {
+			var q float32 = 0.9
+			quality = &q
+		}
+		err = jpeg.Encode(&buf, img, &jpeg.Options{Quality: int(*quality * 100)})
+
+	case FormatPNG:
+		err = png.Encode(&buf, img)
+
+	case FormatWEBP:
+		if quality == nil {
+			var q float32 = 0.9
+			quality = &q
+		}
+		//err = webp.Encode(&buf, img, &webp.Options{
+		//	Lossless: false,
+		//	Quality:  quality,
+		//})
+
+	default:
+		return nil, fmt.Errorf("unsupported output format: %s", format)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }

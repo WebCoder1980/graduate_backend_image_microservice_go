@@ -54,7 +54,7 @@ func (c *Consumer) Start() {
 			log.Panic(err)
 		}
 
-		err = c.service.ImageProcessor(&imageRequest)
+		err = c.service.ServiceImageProcessor(&imageRequest)
 		if err != nil {
 			log.Panic(err)
 		}
