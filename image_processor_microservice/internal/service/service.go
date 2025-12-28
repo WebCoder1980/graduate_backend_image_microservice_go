@@ -6,6 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/disintegration/imaging"
+	_ "github.com/kolesa-team/go-webp/decoder"
+	"github.com/kolesa-team/go-webp/encoder"
+	"github.com/kolesa-team/go-webp/webp"
 	"graduate_backend_image_processor_microservice/internal/constant"
 	"graduate_backend_image_processor_microservice/internal/kafkaproducer"
 	"graduate_backend_image_processor_microservice/internal/minio"
@@ -13,6 +16,7 @@ import (
 	"graduate_backend_image_processor_microservice/internal/postgresql"
 	"image/jpeg"
 	"image/png"
+	"log"
 	"strconv"
 	"time"
 )
@@ -73,9 +77,15 @@ func (s *Service) ImageGetById(imageId int64) ([]byte, error) {
 func (s *Service) ServiceImageProcessor(imageRequest *model.ImageRequest) error {
 	imageRequest.StatusId = constant.StatusSuccessful
 
-	minioFilename := strconv.FormatInt(imageRequest.TaskId, 10) + "_" + strconv.Itoa(imageRequest.Position) + "." + imageRequest.Format
+	targetFormat := imageRequest.Format
+	if imageRequest.TargetFormat != nil {
+		targetFormat = *imageRequest.TargetFormat
+	}
 
-	sourceBytes, err := s.minioClient.Get(minio.BucketSourceName, minioFilename)
+	minioFilenameSource := strconv.FormatInt(imageRequest.TaskId, 10) + "_" + strconv.Itoa(imageRequest.Position) + "." + imageRequest.Format
+	minioFilenameTarget := strconv.FormatInt(imageRequest.TaskId, 10) + "_" + strconv.Itoa(imageRequest.Position) + "." + targetFormat
+
+	sourceBytes, err := s.minioClient.Get(minio.BucketSourceName, minioFilenameSource)
 	if err != nil {
 		imageRequest.StatusId = constant.StatusFailed
 		imageRequest.EndDT = time.Now()
@@ -86,7 +96,7 @@ func (s *Service) ServiceImageProcessor(imageRequest *model.ImageRequest) error 
 		return nil
 	}
 
-	targetBytes, err := s.ImageProcess(sourceBytes, imageRequest.TargetFormat, imageRequest.Width, imageRequest.Height, imageRequest.Quality)
+	targetBytes, err := s.ImageProcess(sourceBytes, targetFormat, imageRequest.Width, imageRequest.Height, imageRequest.Quality)
 	if err != nil {
 		return err
 	}
@@ -103,7 +113,7 @@ func (s *Service) ServiceImageProcessor(imageRequest *model.ImageRequest) error 
 	}
 	imageRequest.Id = imageId
 
-	err = s.minioClient.Upsert(targetBytes, minioFilename)
+	err = s.minioClient.Upsert(targetBytes, minioFilenameTarget)
 	if err != nil {
 		imageRequest.StatusId = constant.StatusFailed
 		err2 := s.ImageProcessorKafkaWrite(imageRequest)
@@ -123,10 +133,11 @@ func (s *Service) ServiceImageProcessor(imageRequest *model.ImageRequest) error 
 
 func (s *Service) ImageProcessorKafkaWrite(imageRequest *model.ImageRequest) error {
 	imageStatus := model.ImageStatus{
-		TaskId:   imageRequest.TaskId,
-		Position: imageRequest.Position,
-		StatusId: imageRequest.StatusId,
-		EndDT:    imageRequest.EndDT,
+		ImageProcessorImageId: imageRequest.Id,
+		TaskId:                imageRequest.TaskId,
+		Position:              imageRequest.Position,
+		StatusId:              imageRequest.StatusId,
+		EndDT:                 imageRequest.EndDT,
 	}
 
 	err := s.kafkaProducer.Write(imageStatus)
@@ -137,7 +148,7 @@ func (s *Service) ImageProcessorKafkaWrite(imageRequest *model.ImageRequest) err
 	return nil
 }
 
-func (s *Service) ImageProcess(input []byte, format *string, width *int, height *int, quality *float32) ([]byte, error) {
+func (s *Service) ImageProcess(input []byte, format string, width *int, height *int, quality *float32) ([]byte, error) {
 	img, err := imaging.Decode(bytes.NewReader(input))
 	if err != nil {
 		return nil, err
@@ -149,7 +160,7 @@ func (s *Service) ImageProcess(input []byte, format *string, width *int, height 
 
 	var buf bytes.Buffer
 
-	switch *format {
+	switch format {
 	case FormatJPEG:
 		if quality == nil {
 			var q float32 = 0.9
@@ -165,10 +176,11 @@ func (s *Service) ImageProcess(input []byte, format *string, width *int, height 
 			var q float32 = 0.9
 			quality = &q
 		}
-		//err = webp.Encode(&buf, img, &webp.Options{
-		//	Lossless: false,
-		//	Quality:  quality,
-		//})
+		options, err := encoder.NewLossyEncoderOptions(encoder.PresetDefault, *quality*100)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		err = webp.Encode(&buf, img, options)
 
 	default:
 		return nil, fmt.Errorf("unsupported output format: %s", format)

@@ -3,11 +3,11 @@ module graduate_backend_image_processor_microservice
 go 1.25.4
 
 require (
+	github.com/HugoSmits86/nativewebp v1.2.1
 	github.com/disintegration/imaging v1.6.2
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/minio/minio-go/v7 v7.0.97
 	github.com/segmentio/kafka-go v0.4.49
-	golang.org/x/image v0.34.0
 )
 
 require (
@@ -20,6 +20,7 @@ require (
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect
+	github.com/kolesa-team/go-webp v1.0.5 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/minio/crc64nvme v1.1.0 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
@@ -29,6 +30,7 @@ require (
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/tinylib/msgp v1.3.0 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
+	golang.org/x/image v0.34.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect

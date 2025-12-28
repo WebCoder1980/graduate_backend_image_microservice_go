@@ -21,8 +21,9 @@ type ImageRequest struct {
 }
 
 type ImageStatus struct {
-	TaskId   int64
-	Position int
-	StatusId int64
-	EndDT    time.Time
+	ImageProcessorImageId int64
+	TaskId                int64
+	Position              int
+	StatusId              int64
+	EndDT                 time.Time
 }

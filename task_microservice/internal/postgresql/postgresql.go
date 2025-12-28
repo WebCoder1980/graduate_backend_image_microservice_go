@@ -65,6 +65,7 @@ func (p *PostgreSQL) init() error {
 		);
 		CREATE TABLE IF NOT EXISTS image(
 		    id BIGSERIAL PRIMARY KEY,
+		    image_processor_image_id BIGINT NULL,
 		    task_id BIGINT REFERENCES task(id) NOT NULL,
 		    position INT NOT NULL,
 		    name TEXT NOT NULL,
@@ -109,7 +110,7 @@ func (p *PostgreSQL) ImageGetByTaskId(taskId int64) ([]model.ImageInfo, error) {
 	var result []model.ImageInfo
 
 	rows, err := p.db.Query(`	
-		SELECT id, name, format, task_id, position, status_id, end_dt
+		SELECT id, image_processor_image_id, name, format, task_id, position, status_id, end_dt
 		FROM image
 		WHERE task_id = $1
 		ORDER BY id
@@ -122,7 +123,7 @@ func (p *PostgreSQL) ImageGetByTaskId(taskId int64) ([]model.ImageInfo, error) {
 		var cur model.ImageInfo
 		var endDT sql.NullTime
 
-		err = rows.Scan(&cur.Id, &cur.Filename, &cur.Format, &cur.TaskId, &cur.Position, &cur.StatusId, &endDT)
+		err = rows.Scan(&cur.Id, &cur.ImageProcessorImageId, &cur.Filename, &cur.Format, &cur.TaskId, &cur.Position, &cur.StatusId, &endDT)
 		if err != nil {
 			return nil, err
 		}
@@ -172,10 +173,11 @@ func (p *PostgreSQL) ImageUpdateStatus(imageStatus model.ImageStatus) error {
 	_, err := p.db.Exec(`
 		UPDATE image
 		SET
-		    status_id = $1,
-			end_dt = $2
-		WHERE task_id=$3 AND position=$4
-	`, imageStatus.StatusId, imageStatus.EndDT, imageStatus.TaskId, imageStatus.Position)
+		    image_processor_image_id = $1,
+		    status_id = $2,
+			end_dt = $3
+		WHERE task_id=$4 AND position=$5
+	`, imageStatus.ImageProcessorImageId, imageStatus.StatusId, imageStatus.EndDT, imageStatus.TaskId, imageStatus.Position)
 	if err != nil {
 		return err
 	}
