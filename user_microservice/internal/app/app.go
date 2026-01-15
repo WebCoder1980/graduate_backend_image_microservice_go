@@ -1,8 +1,17 @@
 package app
 
-import "user_microservice/internal/handler"
+import (
+	"context"
+	"log"
+	"user_microservice/internal/handler"
+)
 
 func Run() {
-	hand := handler.NewHandler()
+	ctx := context.Background()
+
+	hand, err := handler.NewHandler(ctx)
+	if err != nil {
+		log.Panic(err)
+	}
 	hand.Start()
 }
