@@ -63,6 +63,40 @@ func (h *Handler) UserLoginHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusMethodNotAllowed)
 }
 
+func (h *Handler) UserRefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		var body model.UserRefreshToken
+		err = json.Unmarshal(data, &body)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		result, err := h.service.UserRefreshToken(&body)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		data, err = json.Marshal(result)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		_, err = w.Write(data)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		return
+	}
+
+	w.WriteHeader(http.StatusMethodNotAllowed)
+}
+
 func (h *Handler) UserRegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		data, err := io.ReadAll(r.Body)
@@ -90,6 +124,7 @@ func (h *Handler) UserRegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Start() {
 	http.HandleFunc(prefix+"/login", h.UserLoginHandler)
+	http.HandleFunc(prefix+"/refresh-token", h.UserRefreshTokenHandler)
 	http.HandleFunc(prefix+"/register", h.UserRegisterHandler)
 
 	log.Panic(http.ListenAndServe(":"+os.Getenv("handler_port"), nil))

@@ -67,6 +67,15 @@ func (s *Service) UserLogin(body *model.UserLogin) (*gocloak.JWT, error) {
 	return jwt, nil
 }
 
+func (s *Service) UserRefreshToken(body *model.UserRefreshToken) (*gocloak.JWT, error) {
+	jwt, err := s.keycloak.RefreshToken(s.ctx, body.RefreshToken, os.Getenv("keycloak_client_id"), os.Getenv("keycloak_client_secret"), os.Getenv("keycloak_realm"))
+	if err != nil {
+		return nil, err
+	}
+
+	return jwt, nil
+}
+
 func (s *Service) UserRegisterPost(body *model.UserRegisterRequest) error {
 	adminToken, err := s.loginAdmin()
 	if err != nil {
