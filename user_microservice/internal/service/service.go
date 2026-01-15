@@ -58,6 +58,15 @@ func (s *Service) validateRole(adminToken *gocloak.JWT, name string) (*gocloak.R
 	return s.keycloak.GetRealmRole(s.ctx, adminToken.AccessToken, os.Getenv("keycloak_realm"), name)
 }
 
+func (s *Service) UserLogin(body *model.UserLogin) (*gocloak.JWT, error) {
+	jwt, err := s.keycloak.Login(s.ctx, os.Getenv("keycloak_client_id"), os.Getenv("keycloak_client_secret"), os.Getenv("keycloak_realm"), body.Username, body.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	return jwt, nil
+}
+
 func (s *Service) UserRegisterPost(body *model.UserRegisterRequest) error {
 	adminToken, err := s.loginAdmin()
 	if err != nil {
@@ -108,7 +117,7 @@ func (s *Service) UserRegisterPost(body *model.UserRegisterRequest) error {
 }
 
 func (s *Service) loginAdmin() (*gocloak.JWT, error) {
-	token, err := s.keycloak.LoginAdmin(s.ctx, os.Getenv("keycloak_username"), os.Getenv("keycloak_password"), os.Getenv("keycloak_realm"))
+	token, err := s.keycloak.LoginAdmin(s.ctx, os.Getenv("keycloak_admin_username"), os.Getenv("keycloak_admin_password"), os.Getenv("keycloak_realm"))
 	if err != nil {
 		return nil, err
 	}

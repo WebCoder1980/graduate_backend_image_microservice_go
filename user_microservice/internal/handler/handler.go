@@ -30,6 +30,39 @@ func NewHandler(ctx context.Context) (*Handler, error) {
 	}, err
 }
 
+func (h *Handler) UserLoginHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		var body model.UserLogin
+		err = json.Unmarshal(data, &body)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		res, err := h.service.UserLogin(&body)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		data, err = json.Marshal(res)
+		if err != nil {
+			log.Panic(err)
+		}
+		_, err = w.Write(data)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		return
+	}
+
+	w.WriteHeader(http.StatusMethodNotAllowed)
+}
+
 func (h *Handler) UserRegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		data, err := io.ReadAll(r.Body)
@@ -56,6 +89,7 @@ func (h *Handler) UserRegisterHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Start() {
+	http.HandleFunc(prefix+"/login", h.UserLoginHandler)
 	http.HandleFunc(prefix+"/register", h.UserRegisterHandler)
 
 	log.Panic(http.ListenAndServe(":"+os.Getenv("handler_port"), nil))
